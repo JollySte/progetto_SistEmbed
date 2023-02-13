@@ -22,6 +22,19 @@ const int pwmChannel = 0;
 const int freq = 30000;
 const int resolution = 8;
 
+
+
+long calcolaDistanza(){
+  digitalWrite(TRIGGER, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIGGER, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER, LOW);
+  long durata = pulseIn(ECHO, HIGH);
+  long distanza = durata * VELOCITASUONO / 2;
+  return distanza;
+}
+
 void setup(){
 
   pinMode(PWMMOTORE, OUTPUT);
@@ -40,7 +53,7 @@ void setup(){
 
 
 void loop() {
-/*
+
   digitalWrite(in1, HIGH);
   digitalWrite(in2, LOW);
   
@@ -54,17 +67,6 @@ void loop() {
   }
   ledcWrite(pwmChannel, velocitaMotore);   
   delay(500);
- */
-  digitalWrite(TRIGGER, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIGGER, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIGGER, LOW);
-  long durata = pulseIn(ECHO, HIGH);
-  long distanza = durata * VELOCITASUONO / 2;
-  Serial.println(distanza);
-
-  delay(1000);
 
   
 }
