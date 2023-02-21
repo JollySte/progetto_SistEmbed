@@ -1,7 +1,11 @@
+#include <PID_v1.h>
+
 #define PWMMOTORE 16
-#define VELOCITAMAX 222
+#define IN1 18
+#define IN2 17
 #define TRIGGER 26
 #define ECHO 25
+#define VELOCITAIDLE 230
 #define VELOCITASUONO 0.034  //espressa in cm/us
 #define DISTANZAMIN 3
 #define DISTANZAMAX 30
@@ -12,19 +16,21 @@
  * pwm su enable per regolare la velocità del motore
  */
 
-const int in1 = 18;
-const int in2 = 17;
-int velocitaMotore = VELOCITAMAX;
-boolean avvio = true;
+int velocitaMotore = 130;   //il motore inizia a girare con una pwm di circa 150
+
 
 //dati di configurazione canale pwm
 const int pwmChannel = 0;
 const int freq = 30000;
 const int resolution = 8;
 
+//variabili di configurazione controller PID
+double setpoint, input, output;
+double Kp = 1, Ki = 2, Kd = 3;
+PID PIDcontroller(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
 
-long calcolaDistanza(){
+double calcolaDistanza(){
   digitalWrite(TRIGGER, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIGGER, HIGH);
@@ -38,35 +44,57 @@ long calcolaDistanza(){
 void setup(){
 
   pinMode(PWMMOTORE, OUTPUT);
-  pinMode(in1, OUTPUT);
-  pinMode(in2, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);   //superfluo visto che non serve cambiare senso di rotazione
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
   Serial.begin(9600);
+
+  PIDcontroller.SetMode(AUTOMATIC);
 
   //funzioni di configurazione pin per pwm specifiche per esp32
   ledcSetup(pwmChannel, freq, resolution);  
   ledcAttachPin(PWMMOTORE, pwmChannel);
 
-  
+  setpoint = DISTANZAMIN;
 }
 
 
 void loop() {
 
-  digitalWrite(in1, HIGH);
-  digitalWrite(in2, LOW);
+  //rotazione motore in senso antiorario
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
   
-  //aumenta gradualmente la velocità per superare l'inerzia del nastro fermo senza danneggiare l'aggancio al motore 
-  if(avvio){
-    for(int i = 170; i<velocitaMotore; i++){
-      ledcWrite(pwmChannel, i);   
-      delay(100);
+  input = calcolaDistanza();
+  
+  //se non rileva un oggetto nel range del nastro, imposta il motore alla velocità idle...
+  if(input > DISTANZAMAX){
+    while(velocitaMotore < VELOCITAIDLE){   //...aumentandola gradualmente per non danneggiare l'aggancio motore-nastro
+      velocitaMotore++; 
+      ledcWrite(pwmChannel, velocitaMotore);  
+      delay(10);
     }
-    avvio = false;
+    while(velocitaMotore > VELOCITAIDLE){   //...o diminuendola se il PID l'ha aumentata oltre il livello idle 
+      velocitaMotore--; 
+      ledcWrite(pwmChannel, velocitaMotore);  
+      delay(10);
+    }
+
+  //se invece rileva un oggetto, la velocità del motore è affidata al controller PID
+  }else{
+   
+    PIDcontroller.Compute();
+    velocitaMotore = output;
+    ledcWrite(pwmChannel, velocitaMotore);  
+    
   }
-  ledcWrite(pwmChannel, velocitaMotore);   
-  delay(500);
+
+  Serial.print("dist: ");
+  Serial.print(input);
+  Serial.print("--pwm: ");
+  Serial.println(velocitaMotore);
+  delay(200);
 
   
 }
