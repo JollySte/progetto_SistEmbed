@@ -1,8 +1,8 @@
 #include <PID_v1.h>
 
 #define PWMMOTORE 16
-#define IN1 18
-#define IN2 17
+#define IN1 18               //motore 1
+#define IN2 17               //motore 2
 #define TRIGGER 26
 #define ECHO 25
 #define VELOCITAIDLE 230
@@ -12,11 +12,11 @@
 
 /*
  * collegamenti al motor driver L293D: pin PWMMOTORE collegato al piedino "enable" che attiva i piedini I/O sul lato sinistro (in1, in2, out1, out2)
- * pin in1 e in2, collegati rispettivamente agli omonimi piedini del driver, determinano il senso di rotazione
- * pwm su enable per regolare la velocità del motore
+ * pin in1 e in2, collegati rispettivamente agli omonimi piedini del driver, fanno uscire l'alimentazione per i motori sui piedini out1 e out2
+ * pwm su enable per regolare la velocità dei motori
  */
 
-int velocitaMotore = 130;   //il motore inizia a girare con una pwm di circa 150
+int velocitaMotore = 130;   //il motore (senza carico) inizia a girare con una pwm di circa 150 
 
 
 //dati di configurazione canale pwm
@@ -43,32 +43,32 @@ double calcolaDistanza(){
 
 void setup(){
 
-  pinMode(PWMMOTORE, OUTPUT);
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);   //superfluo visto che non serve cambiare senso di rotazione
+  pinMode(PWMMOTORE, OUTPUT); //pin "en1" del ponte h, alimentato in pwm
+  pinMode(IN1, OUTPUT);       //pin "in1" del ponte h, attiva il motore 1
+  pinMode(IN2, OUTPUT);       //pin "in2" del ponte h, attiva il motore 2
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
   Serial.begin(9600);
 
+  setpoint = DISTANZAMIN;
   PIDcontroller.SetMode(AUTOMATIC);
 
-  //funzioni di configurazione pin per pwm specifiche per esp32
+  //funzioni di configurazione pwm specifiche per esp32
   ledcSetup(pwmChannel, freq, resolution);  
   ledcAttachPin(PWMMOTORE, pwmChannel);
 
-  setpoint = DISTANZAMIN;
 }
 
 
 void loop() {
 
-  //rotazione motore in senso antiorario
+  //rotazione motore 1 in senso antiorario e motore 2 in senso orario
   digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
+  digitalWrite(IN2, HIGH);
   
   input = calcolaDistanza();
   
-  //se non rileva un oggetto nel range del nastro, imposta il motore alla velocità idle...
+  //se non rileva un oggetto nel range del nastro, imposta i motori alla velocità idle...
   if(input > DISTANZAMAX){
     while(velocitaMotore < VELOCITAIDLE){   //...aumentandola gradualmente per non danneggiare l'aggancio motore-nastro
       velocitaMotore++; 
@@ -81,7 +81,7 @@ void loop() {
       delay(10);
     }
 
-  //se invece rileva un oggetto, la velocità del motore è affidata al controller PID
+  //se invece rileva un oggetto, la velocità dei motori è affidata al controller PID
   }else{
    
     PIDcontroller.Compute();
