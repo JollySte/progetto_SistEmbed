@@ -9,6 +9,7 @@
 #define VELOCITASUONO 0.034  //espressa in cm/us
 #define DISTANZAMIN 3
 #define DISTANZAMAX 30
+#define MAXFERMO 190         //si assume che il nastro inizi a muoversi poco oltre questo valore di pwm 
 
 /*
  * collegamenti al motor driver L293D: pin PWMMOTORE collegato al piedino "enable" che attiva i piedini I/O sul lato sinistro (in1, in2, out1, out2)
@@ -16,7 +17,7 @@
  * pwm su enable per regolare la velocità dei motori
  */
 
-int velocitaMotore = 130;   //il motore (senza carico) inizia a girare con una pwm di circa 150 
+int velocitaMotore = MAXFERMO;   
 
 
 //dati di configurazione canale pwm
@@ -26,7 +27,7 @@ const int resolution = 8;
 
 //variabili di configurazione controller PID
 double setpoint, input, output;
-double Kp = 1, Ki = 2, Kd = 3;
+double Kp = 2, Ki = 0.5, Kd = 3;
 PID PIDcontroller(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
 
@@ -40,6 +41,22 @@ double calcolaDistanza(){
   long distanza = durata * VELOCITASUONO / 2;
   return distanza;
 }
+
+
+//raggiunge la velocità idle...
+void raggiungiIdle(){
+   while(velocitaMotore < VELOCITAIDLE){   //...aumentandola gradualmente per non danneggiare l'aggancio motore-nastro
+      velocitaMotore++; 
+      ledcWrite(pwmChannel, velocitaMotore);  
+      delay(10);
+    }
+    while(velocitaMotore > VELOCITAIDLE){   //...o diminuendola se il PID l'ha aumentata oltre quel livello
+      velocitaMotore--; 
+      ledcWrite(pwmChannel, velocitaMotore);  
+      delay(10);
+    }
+}
+
 
 void setup(){
 
@@ -68,21 +85,19 @@ void loop() {
   
   input = calcolaDistanza();
   
-  //se non rileva un oggetto nel range del nastro, imposta i motori alla velocità idle...
+  //se non rileva un oggetto nel range del nastro, imposta i motori alla velocità idle
   if(input > DISTANZAMAX){
-    while(velocitaMotore < VELOCITAIDLE){   //...aumentandola gradualmente per non danneggiare l'aggancio motore-nastro
-      velocitaMotore++; 
-      ledcWrite(pwmChannel, velocitaMotore);  
-      delay(10);
-    }
-    while(velocitaMotore > VELOCITAIDLE){   //...o diminuendola se il PID l'ha aumentata oltre il livello idle 
-      velocitaMotore--; 
-      ledcWrite(pwmChannel, velocitaMotore);  
-      delay(10);
-    }
+    
+    raggiungiIdle();
+
+  //se ha raggiunto la destinazione, ferma il nastro
+  }else if(input <= DISTANZAMIN) {
+    
+    velocitaMotore = MAXFERMO; 
+  }
 
   //se invece rileva un oggetto, la velocità dei motori è affidata al controller PID
-  }else{
+  else{
    
     PIDcontroller.Compute();
     velocitaMotore = output;
