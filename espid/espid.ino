@@ -1,3 +1,4 @@
+#include <HC_SR04.h>
 #include <PID_v1.h>
 
 #define PWMMOTORE 16
@@ -19,6 +20,8 @@
 
 int velocitaMotore = MAXFERMO;   
 
+//costruttore libreria per sensore a ultrasuoni
+HC_SR04<ECHO> uSensor(TRIGGER);
 
 //dati di configurazione canale pwm
 const int pwmChannel = 0;
@@ -30,7 +33,7 @@ double setpoint, input, output;
 double Kp = 2, Ki = 0.5, Kd = 3;
 PID PIDcontroller(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
-
+/*
 double calcolaDistanza(){
   digitalWrite(TRIGGER, LOW);
   delayMicroseconds(2);
@@ -41,7 +44,7 @@ double calcolaDistanza(){
   long distanza = durata * VELOCITASUONO / 2;
   return distanza;
 }
-
+*/
 
 //raggiunge la velocità idle...
 void raggiungiIdle(){
@@ -67,6 +70,10 @@ void setup(){
   pinMode(ECHO, INPUT);
   Serial.begin(9600);
 
+  //inizializza il sensore a ultrasuoni in modalità asincrona (a interrupt)
+  uSensor.beginAsync();  
+  uSensor.startAsync(100000);
+
   setpoint = DISTANZAMIN;
   PIDcontroller.SetMode(AUTOMATIC);
 
@@ -82,8 +89,15 @@ void loop() {
   //rotazione motore 1 in senso antiorario e motore 2 in senso orario
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, HIGH);
-  
-  input = calcolaDistanza();
+
+  //quando scatta l'interrupt salva il valore letto dal sensore, e fa partire un altro echo
+  if (uSensor.isFinished()) {
+    input = uSensor.getDist_cm();
+    delay(10);
+    uSensor.startAsync(100000);
+  }
+
+ 
   
   //se non rileva un oggetto nel range del nastro, imposta i motori alla velocità idle
   if(input > DISTANZAMAX){
