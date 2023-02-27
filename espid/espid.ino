@@ -6,11 +6,11 @@
 #define IN2 17               //motore 2
 #define TRIGGER 26
 #define ECHO 25
+#define FOTORES 35
 #define VELOCITAIDLE 230
 #define DISTANZAMIN 3
 #define DISTANZAMAX 30
 #define MAXFERMO 190         //si assume che il nastro inizi a muoversi poco oltre questo valore di pwm 
-#define FOTORES 35
 #define SOGLIALUCE 600       //la fotoresistenza assume valori superiori alla soglia quando un foro ci passa sopra
 
 /*
@@ -22,7 +22,7 @@
 int velocitaMotore = MAXFERMO;   
 int luce = 0;
 long step1 = 0, step2 = 0;
-double rpsNastro = 0;
+double tPeriodo = 0;
 boolean fermo = true;
 int oldDist = 0;
 int velocitaOggetto = 0;
@@ -42,15 +42,15 @@ double Kp = 2, Ki = 0.5, Kd = 3;
 PID PIDcontroller(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
 
-//calcola gli rpm del nastro tramite la differenza degli ultimi 2 tempi campionati (al momento mezzo giro, essendoci 2 fori sul nastro per mandare luce alla fotoresistenza)
+//calcola il numero di secondi per effettuare 1 giro del nastro tramite la differenza degli ultimi 2 tempi campionati (al momento 1/4 giro, essendoci 4 fori sul nastro per mandare luce alla fotoresistenza)
 double velocitaNastro(){
-  double rps = 0;
+  double period = 0;
   step2 = millis();
   if(step1 > 0){
-    rps = ((step2-step1)*2)/1000;  
+    period = ((step2-step1)*4)/1000;  
   }
   step1 = step2;
-  return rps;
+  return period;
 }
 
 //raggiunge la velocità idle...
@@ -67,6 +67,21 @@ void raggiungiIdle(){
     }
 }
 
+void mostraInfo(){
+  Serial.println("MISURAZIONI SISTEMA:");
+  Serial.print("dist: ");
+  Serial.print(input);
+  Serial.print("--pwm: ");
+  Serial.println(velocitaMotore);
+  Serial.println("ALTRI PARAMETRI:");
+  Serial.print("Luce: ");
+  Serial.print(luce);
+  Serial.print("--tGiro: ");
+  Serial.print(tPeriodo); 
+  Serial.print("--speed: ");
+  Serial.print(velocitaOggetto);
+  Serial.println(" cm/s");
+}
 
 void setup(){
 
@@ -139,23 +154,13 @@ void loop() {
   luce = analogRead(FOTORES);
   if(!fermo){
    if(luce > SOGLIALUCE){
-    rpsNastro = velocitaNastro();
+    tPeriodo = velocitaNastro();
    }
   }else{
-    rpsNastro = 0;
+    tPeriodo = 0;
   }
 
-  Serial.print("dist: ");
-  Serial.print(input);
-  Serial.print("--pwm: ");
-  Serial.print(velocitaMotore);
-  Serial.print("--rps: ");
-  Serial.println(rpsNastro);
-  Serial.print("--luce: ");
-  Serial.println(luce);
-  Serial.print("--speed: ");
-  Serial.print(velocitaOggetto);
-  Serial.println(" cm/s");
+  mostraInfo();
   delay(200);
 
   
