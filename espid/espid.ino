@@ -7,10 +7,11 @@
 #define TRIGGER 26
 #define ECHO 25
 #define VELOCITAIDLE 230
-#define VELOCITASUONO 0.034  //espressa in cm/us
 #define DISTANZAMIN 3
 #define DISTANZAMAX 30
 #define MAXFERMO 190         //si assume che il nastro inizi a muoversi poco oltre questo valore di pwm 
+#define FOTORES 35
+#define SOGLIALUCE 600       //la fotoresistenza assume valori superiori alla soglia quando un foro ci passa sopra
 
 /*
  * collegamenti al motor driver L293D: pin PWMMOTORE collegato al piedino "enable" che attiva i piedini I/O sul lato sinistro (in1, in2, out1, out2)
@@ -19,6 +20,13 @@
  */
 
 int velocitaMotore = MAXFERMO;   
+int luce = 0;
+long step1 = 0, step2 = 0;
+double rpsNastro = 0;
+boolean fermo = true;
+int oldDist = 0;
+int velocitaOggetto = 0;
+
 
 //costruttore libreria per sensore a ultrasuoni
 HC_SR04<ECHO> uSensor(TRIGGER);
@@ -33,18 +41,17 @@ double setpoint, input, output;
 double Kp = 2, Ki = 0.5, Kd = 3;
 PID PIDcontroller(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
-/*
-double calcolaDistanza(){
-  digitalWrite(TRIGGER, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIGGER, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIGGER, LOW);
-  long durata = pulseIn(ECHO, HIGH);
-  long distanza = durata * VELOCITASUONO / 2;
-  return distanza;
+
+//calcola gli rpm del nastro tramite la differenza degli ultimi 2 tempi campionati (al momento mezzo giro, essendoci 2 fori sul nastro per mandare luce alla fotoresistenza)
+double velocitaNastro(){
+  double rps = 0;
+  step2 = millis();
+  if(step1 > 0){
+    rps = ((step2-step1)*2)/1000;  
+  }
+  step1 = step2;
+  return rps;
 }
-*/
 
 //raggiunge la velocità idle...
 void raggiungiIdle(){
@@ -68,6 +75,7 @@ void setup(){
   pinMode(IN2, OUTPUT);       //pin "in2" del ponte h, attiva il motore 2
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
+  pinMode(FOTORES, INPUT);
   Serial.begin(9600);
 
   //inizializza il sensore a ultrasuoni in modalità asincrona (a interrupt)
@@ -93,11 +101,14 @@ void loop() {
   //quando scatta l'interrupt salva il valore letto dal sensore, e fa partire un altro echo
   if (uSensor.isFinished()) {
     input = uSensor.getDist_cm();
-    delay(10);
     uSensor.startAsync(100000);
   }
 
- 
+  //velocità (in cm/s) dell'oggetto sul nastro misurata tramite differenza delle ultime 2 distanze 
+  if(oldDist > 0){
+    velocitaOggetto = (oldDist - input) * 5;   //l'intervallo di tempo considerato è 200 ms
+  }
+  oldDist = input;
   
   //se non rileva un oggetto nel range del nastro, imposta i motori alla velocità idle
   if(input > DISTANZAMAX){
@@ -119,10 +130,32 @@ void loop() {
     
   }
 
+  if(velocitaMotore <= MAXFERMO){
+    fermo = true;
+  }else{
+    fermo = false;
+  }
+
+  luce = analogRead(FOTORES);
+  if(!fermo){
+   if(luce > SOGLIALUCE){
+    rpsNastro = velocitaNastro();
+   }
+  }else{
+    rpsNastro = 0;
+  }
+
   Serial.print("dist: ");
   Serial.print(input);
   Serial.print("--pwm: ");
-  Serial.println(velocitaMotore);
+  Serial.print(velocitaMotore);
+  Serial.print("--rps: ");
+  Serial.println(rpsNastro);
+  Serial.print("--luce: ");
+  Serial.println(luce);
+  Serial.print("--speed: ");
+  Serial.print(velocitaOggetto);
+  Serial.println(" cm/s");
   delay(200);
 
   
