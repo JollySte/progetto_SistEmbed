@@ -24,6 +24,8 @@ int luce = 0;
 long step1 = 0, step2 = 0;
 double tPeriodo = 0;
 boolean fermo = true;
+boolean rilevato = false, arrivato = false;
+int tStart = 0, tStop = 0, tempoArrivo = 0;   //timestamps per tempo raggiungimento del target da parte dell'oggetto
 int oldDist = 0;
 int velocitaOggetto = 0;
 
@@ -72,7 +74,13 @@ void mostraInfo(){
   Serial.print("dist: ");
   Serial.print(input);
   Serial.print("--pwm: ");
-  Serial.println(velocitaMotore);
+  Serial.print(velocitaMotore);
+  if(arrivato){
+    Serial.print("--tempoArrivo: ");
+    Serial.println(tempoArrivo);
+  }else{
+    Serial.println("");
+  }
   Serial.println("ALTRI PARAMETRI:");
   Serial.print("Luce: ");
   Serial.print(luce);
@@ -128,17 +136,27 @@ void loop() {
   //se non rileva un oggetto nel range del nastro, imposta i motori alla velocità idle
   if(input > DISTANZAMAX){
     
+    rilevato = false;
+    arrivato = false;
     raggiungiIdle();
 
-  //se ha raggiunto la destinazione, ferma il nastro
+  //se ha raggiunto la destinazione, ferma il nastro e calcola il tempo di arrivo
   }else if(input <= DISTANZAMIN) {
     
     velocitaMotore = MAXFERMO; 
+    if(rilevato && !arrivato){
+      tStop = millis();
+      tempoArrivo = (tStop - tStart)/1000;
+      arrivato = true;
+    }
   }
 
   //se invece rileva un oggetto, la velocità dei motori è affidata al controller PID
   else{
-   
+    if(!rilevato){        //salva il timestamp del momento in cui rileva un oggetto (con boolean di controllo per evitare campionamenti indesiderati)
+      tStart = millis();
+      rilevato = true;
+    }
     PIDcontroller.Compute();
     velocitaMotore = output;
     ledcWrite(pwmChannel, velocitaMotore);  
@@ -161,7 +179,7 @@ void loop() {
   }
 
   mostraInfo();
-  delay(200);
+  delay(369);
 
   
 }
