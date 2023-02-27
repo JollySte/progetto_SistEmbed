@@ -9,6 +9,8 @@ Il progetto consiste in un sistema di "frenata ammortizzata" di un oggetto posto
 1 sensore di ostacoli a ultrasuoni HC-SR04  
 2 Motori DC  
 1 motor driver L293D  
+1 fotoresistenza
+1 resistenza (1Kohm)
 
 ### Licenza
 GNU General Public License v3.0
