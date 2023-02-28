@@ -40,7 +40,7 @@ const int resolution = 8;
 
 //variabili di configurazione controller PID
 double setpoint, input, output;
-double Kp = 2, Ki = 0.5, Kd = 3;
+double Kp = 3, Ki = 2, Kd = 4;
 PID PIDcontroller(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
 
@@ -77,12 +77,13 @@ void mostraInfo(){
   Serial.print(velocitaMotore);
   if(arrivato){
     Serial.print("--tempoArrivo: ");
-    Serial.println(tempoArrivo);
+    Serial.print(tempoArrivo);
+    Serial.println(" s");
   }else{
     Serial.println("");
   }
-  Serial.println("ALTRI PARAMETRI:");
-  Serial.print("Luce: ");
+  Serial.println("  ALTRI PARAMETRI:");
+  Serial.print("  Luce: ");
   Serial.print(luce);
   Serial.print("--tGiro: ");
   Serial.print(tPeriodo); 
@@ -129,7 +130,7 @@ void loop() {
 
   //velocità (in cm/s) dell'oggetto sul nastro misurata tramite differenza delle ultime 2 distanze 
   if(oldDist > 0){
-    velocitaOggetto = (oldDist - input) * 5;   //l'intervallo di tempo considerato è 200 ms
+    velocitaOggetto = (oldDist - input)*3;   //l'intervallo di tempo considerato è quello del delay finale (333 ms)
   }
   oldDist = input;
   
@@ -179,7 +180,7 @@ void loop() {
   }
 
   mostraInfo();
-  delay(369);
+  delay(333);
 
   
 }
