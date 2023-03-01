@@ -22,7 +22,7 @@
 int velocitaMotore = MAXFERMO;   
 int luce = 0;
 long step1 = 0, step2 = 0;
-double tPeriodo = 0;
+double rpm = 0;
 boolean fermo = true;
 boolean rilevato = false, arrivato = false;
 int tStart = 0, tStop = 0, tempoArrivo = 0;   //timestamps per tempo raggiungimento del target da parte dell'oggetto
@@ -46,13 +46,16 @@ PID PIDcontroller(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
 
 //calcola il numero di secondi per effettuare 1 giro del nastro tramite la differenza degli ultimi 2 tempi campionati (al momento 1/4 giro, essendoci 4 fori sul nastro per mandare luce alla fotoresistenza)
 double velocitaNastro(){
-  double period = 0;
+  double rps = 0;
+  double tempo = 0;
   step2 = millis();
   if(step1 > 0){
-    period = ((step2-step1)*4)/1000;  
+    tempo = ((step2-step1)*4)/1000;  
   }
+  rps = 1/tempo;
+  double rpm = rps*60;
   step1 = step2;
-  return period;
+  return rpm;
 }
 
 //raggiunge la velocità idle...
@@ -85,8 +88,8 @@ void mostraInfo(){
   Serial.println("  ALTRI PARAMETRI:");
   Serial.print("  Luce: ");
   Serial.print(luce);
-  Serial.print("--tGiro: ");
-  Serial.print(tPeriodo); 
+  Serial.print("--rpm: ");
+  Serial.print(rpm); 
   Serial.print("--speed: ");
   Serial.print(velocitaOggetto);
   Serial.println(" cm/s");
@@ -139,6 +142,7 @@ void loop() {
     
     rilevato = false;
     arrivato = false;
+    velocitaOggetto = 0;
     raggiungiIdle();
 
   //se ha raggiunto la destinazione, ferma il nastro e calcola il tempo di arrivo
@@ -173,10 +177,10 @@ void loop() {
   luce = analogRead(FOTORES);
   if(!fermo){
    if(luce > SOGLIALUCE){
-    tPeriodo = velocitaNastro();
+    rpm = velocitaNastro();
    }
   }else{
-    tPeriodo = 0;
+    rpm = 0;
   }
 
   mostraInfo();
